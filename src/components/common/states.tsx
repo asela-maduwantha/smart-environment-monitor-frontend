@@ -1,0 +1,6 @@
+import { AlertCircle, Database, RotateCw } from "lucide-react";
+import { Button, Card, Skeleton } from "@/components/ui";
+
+export function PageSkeleton() { return <div className="space-y-6"><Skeleton className="h-20" /><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{[1,2,3,4].map((n) => <Skeleton key={n} className="h-40" />)}</div><Skeleton className="h-80" /></div>; }
+export function ErrorState({ message = "Unable to reach monitoring server.", retry }: { message?: string; retry?: () => void }) { return <Card className="flex min-h-52 flex-col items-center justify-center p-8 text-center"><AlertCircle className="mb-3 h-8 w-8 text-red-500"/><h3 className="font-semibold">{message}</h3><p className="mt-1 text-sm text-slate-500">The server may be waking up. Please try again.</p>{retry && <Button className="mt-4" onClick={retry}><RotateCw className="h-4 w-4"/>Retry</Button>}</Card>; }
+export function EmptyState({ title, description }: { title: string; description?: string }) { return <Card className="flex min-h-48 flex-col items-center justify-center p-8 text-center"><Database className="mb-3 h-8 w-8 text-slate-400"/><h3 className="font-semibold">{title}</h3>{description && <p className="mt-1 text-sm text-slate-500">{description}</p>}</Card>; }

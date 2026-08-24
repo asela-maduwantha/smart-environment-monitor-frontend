@@ -1,0 +1,21 @@
+"use client";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Activity, Droplets, Lightbulb, Radio, Thermometer, Wifi } from "lucide-react";
+import { useDevice } from "@/context/device-context";
+import { readingsService } from "@/services/readings.service";
+import { settingsService } from "@/services/settings.service";
+import { isTelemetryFresh, rssiQuality } from "@/lib/utils";
+import { fullTimestamp, relativeTime, formatNumber } from "@/lib/formatters";
+import { SensorCard } from "@/components/dashboard/sensor-card";
+import { Badge, Card, CardContent } from "@/components/ui";
+import { ErrorState, PageSkeleton } from "@/components/common/states";
+import type { DeviceSettings, SensorReading } from "@/types";
+
+export default function LivePage() {
+  const { selectedDeviceId, devices } = useDevice(); const [reading, setReading] = useState<SensorReading|null>(null); const [settings, setSettings] = useState<DeviceSettings|null>(null); const [error, setError] = useState<string|null>(null); const [loading, setLoading] = useState(true);
+  const load = useCallback(async (signal?: AbortSignal) => { try { const latest = await readingsService.latest(selectedDeviceId, signal); setReading(latest); setError(null); } catch (e) { if (!(e instanceof DOMException && e.name === "AbortError")) setError(e instanceof Error ? e.message : "Unable to reach monitoring server."); } finally { setLoading(false); } }, [selectedDeviceId]);
+  useEffect(() => { const controller = new AbortController(); void Promise.all([load(controller.signal), settingsService.get(selectedDeviceId, controller.signal).then(setSettings).catch(() => null)]); const timer = window.setInterval(() => void load(), 5000); return () => { controller.abort(); clearInterval(timer); }; }, [selectedDeviceId, load]);
+  const device = devices.find((d) => d.id === selectedDeviceId); const state = useMemo(() => !device || device.status === "offline" ? "Offline" : error ? "Offline" : reading && isTelemetryFresh(reading.timestamp, settings?.publishIntervalSeconds) ? "Live" : "Connection delayed", [device, error, reading, settings]);
+  if ((loading && !reading) || (reading && reading.deviceId !== selectedDeviceId)) return <PageSkeleton/>; if (!reading) return <ErrorState message={error || "No sensor readings yet."} retry={() => void load()}/>;
+  return <div className="space-y-6"><div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><h2 className="text-2xl font-semibold">Live Environmental Monitoring</h2><p className="mt-1 text-sm text-slate-500">Latest telemetry, refreshed every five seconds</p></div><Badge className={state === "Live" ? "bg-emerald-50 text-emerald-700" : state === "Offline" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700"}><span className={`mr-2 h-2 w-2 rounded-full ${state === "Live" ? "animate-pulse bg-emerald-500" : state === "Offline" ? "bg-red-500" : "bg-amber-500"}`}/>{state}</Badge></div>{error && <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">Unable to refresh. Showing the most recent reading.</div>}<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5"><SensorCard title="Temperature" value={formatNumber(reading.temperatureC)} unit="°C" status="Current" icon={Thermometer}/><SensorCard title="Humidity" value={formatNumber(reading.humidityPercent,0)} unit="%" status="Current" icon={Droplets} color="cyan"/><SensorCard title="Light Level" value={formatNumber(reading.lightValue,0)} status="Raw reading" icon={Lightbulb} color="amber"/><SensorCard title="Motion" value={reading.motionDetected ? "Detected" : "No Motion"} status="Current" icon={Radio} color="violet"/><SensorCard title="Wi-Fi Signal" value={`${reading.wifiRssi}`} unit="dBm" status={rssiQuality(reading.wifiRssi)} icon={Wifi}/></div><Card><CardContent className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center"><span className="rounded-full bg-blue-50 p-4 text-blue-600"><Activity className="h-7 w-7"/></span><div className="flex-1"><p className="font-semibold">Last telemetry update</p><p className="text-sm text-slate-500">{fullTimestamp(reading.timestamp)}</p></div><p className="text-sm font-medium text-slate-600">{relativeTime(reading.timestamp)}</p></CardContent></Card></div>;
+}

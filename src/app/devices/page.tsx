@@ -1,0 +1,11 @@
+"use client";
+import Link from "next/link";
+import { Cpu, MapPin, Wifi } from "lucide-react";
+import { useApiResource } from "@/hooks/use-api-resource";
+import { deviceService } from "@/services/device.service";
+import { formatNumber, relativeTime } from "@/lib/formatters";
+import { rssiQuality } from "@/lib/utils";
+import { Badge, Card, CardContent, CardHeader } from "@/components/ui";
+import { EmptyState, ErrorState, PageSkeleton } from "@/components/common/states";
+
+export default function DevicesPage(){const resource=useApiResource((signal)=>deviceService.list(signal),[]);if(resource.loading)return <PageSkeleton/>;if(resource.error)return <ErrorState message={resource.error} retry={resource.retry}/>;const devices=resource.data||[];return <div className="space-y-6"><div><h2 className="text-2xl font-semibold">Registered Devices</h2><p className="mt-1 text-sm text-slate-500">Manage and inspect IoT monitoring nodes</p></div>{devices.length?<div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{devices.map((d)=><Link href={`/devices/${encodeURIComponent(d.id)}`} key={d.id}><Card className="h-full transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"><CardHeader className="flex flex-row items-start justify-between"><span className="rounded-xl bg-blue-50 p-3 text-blue-600"><Cpu/></span><Badge className={d.status==="online"?"bg-emerald-50 text-emerald-700":"bg-slate-100 text-slate-600"}>{d.status}</Badge></CardHeader><CardContent><h3 className="text-lg font-semibold">{d.name}</h3><p className="text-sm text-slate-500">{d.id}</p><div className="mt-5 space-y-3 border-t pt-4 text-sm"><p className="flex items-center gap-2 text-slate-600"><MapPin className="h-4 w-4"/>{d.location}</p><p className="flex items-center gap-2 text-slate-600"><Wifi className="h-4 w-4"/>{d.wifiRssi} dBm · {rssiQuality(d.wifiRssi)}</p><div className="grid grid-cols-2 gap-3 rounded-lg bg-slate-50 p-3"><div><p className="text-xs text-slate-500">Temperature</p><p className="font-semibold">{d.latestReading?`${formatNumber(d.latestReading.temperatureC)} °C`:"—"}</p></div><div><p className="text-xs text-slate-500">Last Seen</p><p className="font-semibold">{relativeTime(d.lastSeen)}</p></div></div></div></CardContent></Card></Link>)}</div>:<EmptyState title="No devices registered."/>}</div>}
