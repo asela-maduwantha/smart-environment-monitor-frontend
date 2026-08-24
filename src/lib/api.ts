@@ -6,6 +6,25 @@ export class ApiError extends Error {
   constructor(message: string, public status: number) { super(message); this.name = "ApiError"; }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+export function unwrapEntity<T>(value: unknown, key: string): T {
+  if (isRecord(value) && key in value) return value[key] as T;
+  return value as T;
+}
+
+export function unwrapCollection<T>(value: unknown, ...keys: string[]): T[] {
+  if (Array.isArray(value)) return value as T[];
+  if (isRecord(value)) {
+    for (const key of keys) {
+      if (Array.isArray(value[key])) return value[key] as T[];
+    }
+  }
+  throw new ApiError("The monitoring server returned an invalid collection response.", 502);
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     const response = await fetch(`${API_URL}${path.startsWith("/") ? path : `/${path}`}`, {

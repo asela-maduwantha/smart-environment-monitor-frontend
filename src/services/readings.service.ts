@@ -1,6 +1,6 @@
-import { apiFetch, queryString } from "@/lib/api";
-import type { SensorReading } from "@/types";
+import { apiFetch, queryString, unwrapCollection, unwrapEntity } from "@/lib/api";
+import { mapReading, type RawReading } from "@/lib/api-mappers";
 export const readingsService = {
-  latest: (id: string, signal?: AbortSignal) => apiFetch<SensorReading>(`/devices/${encodeURIComponent(id)}/readings/latest`, { signal }),
-  recent: (id: string, limit = 20, signal?: AbortSignal) => apiFetch<SensorReading[]>(`/devices/${encodeURIComponent(id)}/readings${queryString({ limit })}`, { signal }),
+  latest: async (id: string, signal?: AbortSignal) => mapReading(unwrapEntity<RawReading>(await apiFetch<unknown>(`/devices/${encodeURIComponent(id)}/readings/latest`, { signal }), "reading")),
+  recent: async (id: string, limit = 20, signal?: AbortSignal) => unwrapCollection<RawReading>(await apiFetch<unknown>(`/devices/${encodeURIComponent(id)}/readings${queryString({ limit })}`, { signal }), "readings", "items").map(mapReading),
 };

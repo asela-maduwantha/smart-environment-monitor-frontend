@@ -1,6 +1,6 @@
-import { apiFetch } from "@/lib/api";
-import type { Device } from "@/types";
+import { apiFetch, unwrapCollection, unwrapEntity } from "@/lib/api";
+import { mapDevice, type RawDevice } from "@/lib/api-mappers";
 export const deviceService = {
-  list: (signal?: AbortSignal) => apiFetch<Device[]>("/devices", { signal }),
-  get: (id: string, signal?: AbortSignal) => apiFetch<Device>(`/devices/${encodeURIComponent(id)}`, { signal }),
+  list: async (signal?: AbortSignal) => unwrapCollection<RawDevice>(await apiFetch<unknown>("/devices", { signal }), "devices", "items").map(mapDevice),
+  get: async (id: string, signal?: AbortSignal) => mapDevice(unwrapEntity<RawDevice>(await apiFetch<unknown>(`/devices/${encodeURIComponent(id)}`, { signal }), "device")),
 };
