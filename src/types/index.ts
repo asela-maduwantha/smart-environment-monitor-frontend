@@ -54,6 +54,7 @@ export interface ChartReading {
   temperatureC: number;
   humidityPercent: number;
   lightValue: number;
+  isForecast?: boolean;
 }
 
 export interface MetricStats { average: number; minimum: number; maximum: number }
@@ -66,6 +67,78 @@ export interface Analytics {
   readings: ChartReading[];
 }
 
+export interface ComfortAnalysis {
+  feelsLikeC: number;
+  dewPointC: number;
+  comfortStatus: "Optimal Comfort" | "Slightly Humid" | "Warm & Stuffy" | "Cool & Dry" | "Heat Stress Risk";
+  comfortScore: number;
+  summary: string;
+}
+
+export interface MoldRiskAnalysis {
+  riskScore: number;
+  riskLevel: "LOW" | "MODERATE" | "HIGH" | "CRITICAL";
+  condensationRisk: boolean;
+  deltaToDewPoint: number;
+  recommendation: string;
+}
+
+export interface ForecastTrajectory {
+  currentTempC: number;
+  currentHumidity: number;
+  tempTrend: "rising" | "falling" | "stable";
+  tempVelocityPerHour: number;
+  humidityTrend: "rising" | "falling" | "stable";
+  humidityVelocityPerHour: number;
+  forecast1h: {
+    temperatureC: number;
+    humidityPercent: number;
+  };
+  forecast3h: {
+    temperatureC: number;
+    humidityPercent: number;
+  };
+  timeToThreshold?: {
+    metric: "temperature" | "humidity";
+    thresholdType: "HIGH" | "LOW";
+    thresholdValue: number;
+    estimatedMinutes: number;
+    message: string;
+  };
+}
+
+export interface HourlyOccupancy {
+  hour: number;
+  label: string;
+  eventCount: number;
+  occupancyIntensity: number;
+}
+
+export interface OccupancyProfile {
+  currentPresence: "Someone in the room" | "Room Empty";
+  isOccupied: boolean;
+  totalVisitsToday: number;
+  peakHourLabel: string;
+  hourlyDistribution: HourlyOccupancy[];
+}
+
+export interface EnergyEfficiencyAudit {
+  illuminatedHours: number;
+  occupiedIlluminatedHours: number;
+  wastedLightingHours: number;
+  efficiencyScore: number;
+  alertMessage?: string;
+}
+
+export interface PredictiveInsights {
+  comfort: ComfortAnalysis;
+  moldRisk: MoldRiskAnalysis;
+  forecast: ForecastTrajectory;
+  occupancy: OccupancyProfile;
+  energy: EnergyEfficiencyAudit;
+  smartRecommendations: string[];
+}
+
 export interface DashboardSummary {
   device: Device;
   latestReading: SensorReading;
@@ -75,7 +148,9 @@ export interface DashboardSummary {
   recentReadings: SensorReading[];
   motionEventsToday: number;
   environmentStatus?: "normal" | "attention";
+  predictions?: PredictiveInsights;
 }
 
 export type ChartRange = "1h" | "24h" | "7d" | "30d";
 export type AnalyticsRange = "24h" | "7d" | "30d";
+

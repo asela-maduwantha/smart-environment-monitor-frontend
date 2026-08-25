@@ -30,17 +30,26 @@ function CustomTooltip({
     value: number;
     color: string;
     dataKey: string;
+    payload?: { isForecast?: boolean };
   }>;
   label?: string;
   longRange?: boolean;
 }) {
   if (!active || !payload || !payload.length) return null;
+  const isForecastPoint = payload[0]?.payload?.isForecast;
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white/95 p-3.5 shadow-xl backdrop-blur-md dark:border-white/10 dark:bg-slate-900/95 text-xs">
-      <p className="mb-2 font-mono text-[11px] text-slate-400 dark:text-slate-500 font-medium">
-        {label ? chartTime(String(label), longRange) : ""}
-      </p>
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="font-mono text-[11px] text-slate-400 dark:text-slate-500 font-medium">
+          {label ? chartTime(String(label), longRange) : ""}
+        </p>
+        {isForecastPoint && (
+          <span className="rounded-md bg-purple-500/10 px-1.5 py-0.5 text-[9px] font-bold text-purple-600 dark:text-purple-400 border border-purple-500/20">
+            Projected Forecast
+          </span>
+        )}
+      </div>
       <div className="space-y-1.5">
         {payload.map((entry) => (
           <div
@@ -269,9 +278,9 @@ export function LightChart({
   return (
     <Card className="overflow-hidden">
       <CardHeader className="pb-4">
-        <CardTitle>Ambient Light Intensity</CardTitle>
+        <CardTitle>Ambient Light & Illumination State</CardTitle>
         <CardDescription>
-          Photodiode raw sensor telemetry values (0–1023)
+          Digital LDR state (1 = Room Illuminated / Light ON, 0 = Dim / Light OFF)
         </CardDescription>
       </CardHeader>
 

@@ -12,6 +12,8 @@ import {
   Radio,
   Settings,
   Thermometer,
+  UserCheck,
+  UserX,
   Wifi,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -41,7 +43,7 @@ export default function DeviceDetailPage() {
         readingsService.latest(id, signal),
         readingsService.recent(id, 15, signal),
         alertsService.list({ deviceId: id, limit: 5 }, signal),
-        analyticsService.chart(id, "24h", signal),
+        analyticsService.chart(id, "24h", false, signal),
         settingsService.get(id, signal),
       ]);
     return { device, latest, readings, alerts, chart, settings };
@@ -175,7 +177,7 @@ export default function DeviceDetailPage() {
           value={formatNumber(d.latest.temperatureC)}
           unit="°C"
           status="Latest Reading"
-          detail={`Range: ${d.settings.lowTemperature}–${d.settings.highTemperature} °C`}
+          detail={`Target: ${d.settings.lowTemperature}–${d.settings.highTemperature} °C`}
           icon={Thermometer}
           color="blue"
         />
@@ -185,26 +187,26 @@ export default function DeviceDetailPage() {
           value={formatNumber(d.latest.humidityPercent, 0)}
           unit="%"
           status="Latest Reading"
-          detail={`Range: ${d.settings.lowHumidity}–${d.settings.highHumidity}%`}
+          detail={`Target: ${d.settings.lowHumidity}–${d.settings.highHumidity}%`}
           icon={Droplets}
           color="cyan"
         />
 
         <SensorCard
-          title="Raw Light Level"
-          value={formatNumber(d.latest.lightValue, 0)}
-          status="Photodiode"
-          detail={`Range: ${d.settings.lowLight}–${d.settings.highLight}`}
+          title="Room Illumination"
+          value={d.latest.lightValue >= 1 ? "Illuminated" : "Dim"}
+          status={d.latest.lightValue >= 1 ? "Lights ON" : "Lights OFF"}
+          detail="Digital LDR Sensor"
           icon={Lightbulb}
           color="amber"
         />
 
         <SensorCard
-          title="PIR Motion Sensor"
-          value={d.latest.motionDetected ? "Detected" : "Clear"}
-          status={d.latest.motionDetected ? "Active Anomaly" : "No Motion"}
-          icon={Radio}
-          color={d.latest.motionDetected ? "rose" : "violet"}
+          title="Room Presence"
+          value={d.latest.motionDetected ? "Someone in the room" : "Room Empty"}
+          status={d.latest.motionDetected ? "Occupied" : "Vacant"}
+          icon={d.latest.motionDetected ? UserCheck : UserX}
+          color={d.latest.motionDetected ? "emerald" : "violet"}
           isAlert={d.latest.motionDetected}
         />
       </div>

@@ -2,13 +2,21 @@
 
 import { useState } from "react";
 import {
+  AlertTriangle,
+  ArrowDownRight,
+  ArrowUpRight,
   CheckCircle2,
   Clock,
   Droplets,
   Lightbulb,
   Radio,
+  ShieldCheck,
+  Sparkles,
   Thermometer,
+  UserCheck,
+  UserX,
   Wifi,
+  Wind,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useDevice } from "@/context/device-context";
@@ -61,9 +69,9 @@ export default function DashboardPage() {
   const data = resource.data;
   if (!data) return <EmptyState title="No sensor readings yet." />;
 
-  const { latestReading: r, settings: s, device } = data;
+  const { latestReading: r, settings: s, device, predictions: pred } = data;
 
-  // Temperature status & range
+  // Temperature calculations
   const tempRangeSpan = Math.max(s.highTemperature - s.lowTemperature, 1);
   const tempPercent = ((r.temperatureC - s.lowTemperature) / tempRangeSpan) * 100;
   const temperatureHigh = r.temperatureC > s.highTemperature;
@@ -72,28 +80,37 @@ export default function DashboardPage() {
     ? "High Temp Alert"
     : temperatureLow
     ? "Low Temp Alert"
+    : pred?.comfort.feelsLikeC
+    ? `Feels like ${pred.comfort.feelsLikeC}°C`
     : "Comfortable";
 
-  // Humidity status & range
+  // Humidity calculations
   const humRangeSpan = Math.max(s.highHumidity - s.lowHumidity, 1);
   const humPercent = ((r.humidityPercent - s.lowHumidity) / humRangeSpan) * 100;
   const humidityNormal =
     r.humidityPercent >= s.lowHumidity && r.humidityPercent <= s.highHumidity;
-  const humStatus = humidityNormal
+  const humStatus = pred?.comfort.dewPointC
+    ? `Dew Point: ${pred.comfort.dewPointC}°C`
+    : humidityNormal
     ? "Optimal Balance"
     : r.humidityPercent < s.lowHumidity
     ? "Low Humidity"
     : "High Humidity";
 
-  // Light status & range
-  const lightRangeSpan = Math.max(s.highLight - s.lowLight, 1);
-  const lightPercent = ((r.lightValue - s.lowLight) / lightRangeSpan) * 100;
-  const lightStatus =
-    r.lightValue < s.lowLight
-      ? "Dark"
-      : r.lightValue > s.highLight
-      ? "Bright"
-      : "Nominal";
+  // Light calculations (Digital LDR: 1 = ON, 0 = OFF)
+  const isLightOn = r.lightValue >= 1;
+  const lightTitle = isLightOn ? "Room Illuminated" : "Dim / Dark";
+  const lightStatus = isLightOn
+    ? "Lights ON (Active)"
+    : "Lights OFF (Dim)";
+  const lightPercent = isLightOn ? 100 : 0;
+
+  // Presence / Occupancy calculations
+  const isOccupied = r.motionDetected || Boolean(pred?.occupancy.isOccupied);
+  const presenceTitle = isOccupied ? "Someone in the room" : "Room Empty";
+  const presenceDetail = pred?.occupancy.totalVisitsToday !== undefined
+    ? `Room active ${pred.occupancy.totalVisitsToday} times today`
+    : `${data.motionEventsToday} room entries today`;
 
   return (
     <div className="space-y-6">
@@ -104,7 +121,7 @@ export default function DashboardPage() {
             Environmental Overview Hub
           </h2>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Real-time IoT telemetry, threshold comfort analysis, and trend visualizations
+            Real-time IoT telemetry, presence intelligence, and predictive trend forecasting
           </p>
         </div>
 
@@ -132,6 +149,87 @@ export default function DashboardPage() {
       {/* Vitality Score Ring Hub */}
       <VitalityScore reading={r} settings={s} alerts={data.alerts} />
 
+      {/* Predictive Comfort & Forecast Banner */}
+      {pred && (
+        <div className="grid gap-4 md:grid-cols-3">
+          {/* Comfort Assessment */}
+          <div className="rounded-2xl border border-blue-500/20 bg-gradient-to-br from-blue-500/10 via-blue-500/5 to-transparent p-4 dark:border-blue-500/20">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                <Wind className="h-4 w-4" />
+                Thermal Comfort
+              </span>
+              <Badge variant="info">
+                {pred.comfort.comfortStatus}
+              </Badge>
+            </div>
+            <p className="mt-2 text-2xl font-bold font-mono text-slate-900 dark:text-white">
+              {pred.comfort.feelsLikeC}°C
+              <span className="text-xs font-normal text-slate-500 dark:text-slate-400 font-sans ml-1.5">
+                Apparent &quot;Feels Like&quot;
+              </span>
+            </p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Dew Point: {pred.comfort.dewPointC}°C · Comfort Score: {pred.comfort.comfortScore}/100
+            </p>
+          </div>
+
+          {/* 1h Forecast Trajectory */}
+          <div className="rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 via-cyan-500/5 to-transparent p-4 dark:border-cyan-500/20">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-cyan-600 dark:text-cyan-400 flex items-center gap-1.5">
+                <Sparkles className="h-4 w-4" />
+                1-Hour Trajectory
+              </span>
+              <span className="flex items-center text-xs font-semibold text-cyan-600 dark:text-cyan-400">
+                {pred.forecast.tempTrend === "rising" ? (
+                  <>
+                    <ArrowUpRight className="h-4 w-4" /> Rising
+                  </>
+                ) : pred.forecast.tempTrend === "falling" ? (
+                  <>
+                    <ArrowDownRight className="h-4 w-4" /> Cooling
+                  </>
+                ) : (
+                  "Stable"
+                )}
+              </span>
+            </div>
+            <p className="mt-2 text-2xl font-bold font-mono text-slate-900 dark:text-white">
+              {pred.forecast.forecast1h.temperatureC}°C
+              <span className="text-xs font-normal text-slate-500 dark:text-slate-400 font-sans ml-1.5">
+                / {pred.forecast.forecast1h.humidityPercent}% RH
+              </span>
+            </p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Velocity: {pred.forecast.tempVelocityPerHour > 0 ? "+" : ""}{pred.forecast.tempVelocityPerHour}°C/h
+            </p>
+          </div>
+
+          {/* Moisture / Mold Hazard */}
+          <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent p-4 dark:border-emerald-500/20">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                <ShieldCheck className="h-4 w-4" />
+                Moisture & Mold Risk
+              </span>
+              <Badge variant={pred.moldRisk.riskLevel === "LOW" ? "success" : pred.moldRisk.riskLevel === "MODERATE" ? "warning" : "critical"}>
+                {pred.moldRisk.riskLevel}
+              </Badge>
+            </div>
+            <p className="mt-2 text-2xl font-bold font-mono text-slate-900 dark:text-white">
+              {pred.moldRisk.riskScore}%
+              <span className="text-xs font-normal text-slate-500 dark:text-slate-400 font-sans ml-1.5">
+                Hazard Index
+              </span>
+            </p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 truncate">
+              {pred.moldRisk.condensationRisk ? "Condensation proximity warning" : "Safe environmental bounds"}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* 4 Sensor Telemetry Cards */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <SensorCard
@@ -139,7 +237,7 @@ export default function DashboardPage() {
           value={formatNumber(r.temperatureC)}
           unit="°C"
           status={tempStatus}
-          detail={`Target: ${s.lowTemperature}–${s.highTemperature} °C`}
+          detail={`Target Range: ${s.lowTemperature}–${s.highTemperature} °C`}
           icon={Thermometer}
           color={temperatureHigh || temperatureLow ? "rose" : "blue"}
           rangePercent={tempPercent}
@@ -151,7 +249,7 @@ export default function DashboardPage() {
           value={formatNumber(r.humidityPercent, 0)}
           unit="%"
           status={humStatus}
-          detail={`Target: ${s.lowHumidity}–${s.highHumidity}%`}
+          detail={`Target Range: ${s.lowHumidity}–${s.highHumidity}%`}
           icon={Droplets}
           color={humidityNormal ? "cyan" : "amber"}
           rangePercent={humPercent}
@@ -159,26 +257,59 @@ export default function DashboardPage() {
         />
 
         <SensorCard
-          title="Ambient Light"
-          value={formatNumber(r.lightValue, 0)}
-          unit="raw"
+          title="Room Illumination"
+          value={lightTitle}
+          unit=""
           status={lightStatus}
-          detail={`Threshold: ${s.lowLight}–${s.highLight}`}
+          detail={isLightOn ? "Room illuminated" : "Natural darkness"}
           icon={Lightbulb}
           color="amber"
           rangePercent={lightPercent}
         />
 
         <SensorCard
-          title="Motion Detection"
-          value={r.motionDetected ? "Detected" : "Clear"}
-          status={`${data.motionEventsToday} events today`}
-          detail="PIR Sensor Active"
-          icon={Radio}
-          color={r.motionDetected ? "rose" : "violet"}
-          isAlert={r.motionDetected}
+          title="Room Presence"
+          value={presenceTitle}
+          unit=""
+          status={presenceDetail}
+          detail={isOccupied ? "Occupancy active" : "Space is vacant"}
+          icon={isOccupied ? UserCheck : UserX}
+          color={isOccupied ? "emerald" : "violet"}
+          isAlert={isOccupied}
         />
       </div>
+
+      {/* Smart Actionable Recommendations */}
+      {pred && pred.smartRecommendations.length > 0 && (
+        <Card className="border border-cyan-500/20 bg-gradient-to-r from-cyan-500/5 via-blue-500/5 to-transparent">
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-cyan-500" />
+              <CardTitle className="text-base">Intelligent Environmental Insights & Recommendations</CardTitle>
+            </div>
+            <CardDescription>
+              Contextual suggestions based on real-time telemetry and occupancy correlation
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+              {pred.smartRecommendations.map((rec, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-start gap-2.5 rounded-xl border border-slate-200/70 bg-white/70 p-3 text-xs dark:border-white/5 dark:bg-slate-900/60"
+                >
+                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 font-bold">
+                    ✓
+                  </span>
+                  <p className="text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
+                    {rec}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Interactive Charts Suite */}
       {data.chartReadings.length ? (
@@ -201,9 +332,9 @@ export default function DashboardPage() {
         {/* Device Status & Health */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle>Node Hardware Status</CardTitle>
+            <CardTitle>ESP32 Node Status</CardTitle>
             <CardDescription>
-              Connectivity and firmware diagnostics
+              MQTT over TLS & hardware diagnostics
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3.5 text-sm">
@@ -296,12 +427,12 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Live Activity Stream */}
+        {/* Live Presence & Activity Stream */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle>Recent Activity Stream</CardTitle>
+            <CardTitle>Presence & Activity Stream</CardTitle>
             <CardDescription>
-              Chronological log of alerts & motion events
+              Chronological log of room entries & events
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -320,7 +451,7 @@ export default function DashboardPage() {
                     .slice(0, 3)
                     .map((x) => ({
                       id: x.id,
-                      text: "PIR Motion Detected in zone",
+                      text: "Someone entered the room",
                       at: x.timestamp,
                       type: "motion" as const,
                     })),
@@ -333,7 +464,7 @@ export default function DashboardPage() {
                         className={`mt-1 h-2 w-2 shrink-0 rounded-full ${
                           item.type === "alert"
                             ? "bg-amber-500 shadow-xs shadow-amber-500"
-                            : "bg-cyan-500 shadow-xs shadow-cyan-500"
+                            : "bg-emerald-500 shadow-xs shadow-emerald-500"
                         }`}
                       />
                       <div className="min-w-0 flex-1">
@@ -353,7 +484,7 @@ export default function DashboardPage() {
                 <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
                   No Recent Activity
                 </p>
-                <p className="text-xs text-slate-400">Idle state monitored.</p>
+                <p className="text-xs text-slate-400">Room is idle and empty.</p>
               </div>
             )}
           </CardContent>
@@ -381,3 +512,4 @@ function InfoRow({
     </div>
   );
 }
+

@@ -203,7 +203,9 @@ export default function LivePage() {
           statusText={
             reading.temperatureC > (settings?.highTemperature || 30)
               ? "High"
-              : "Normal"
+              : reading.temperatureC < (settings?.lowTemperature || 18)
+              ? "Low"
+              : "Comfortable"
           }
           icon={<Thermometer className="h-4 w-4" />}
         />
@@ -218,21 +220,21 @@ export default function LivePage() {
           statusText={
             reading.humidityPercent > (settings?.highHumidity || 70)
               ? "Humid"
+              : reading.humidityPercent < (settings?.lowHumidity || 30)
+              ? "Dry"
               : "Balanced"
           }
           icon={<Droplets className="h-4 w-4" />}
         />
 
         <TelemetryGauge
-          title="Ambient Light Level"
-          value={reading.lightValue}
+          title="Room Illumination (LDR)"
+          value={reading.lightValue >= 1 ? 100 : 0}
           min={0}
-          max={1023}
-          unit="raw"
+          max={100}
+          unit="%"
           color="amber"
-          statusText={
-            reading.lightValue < (settings?.lowLight || 100) ? "Dim" : "Bright"
-          }
+          statusText={reading.lightValue >= 1 ? "Lights ON" : "Lights OFF"}
           icon={<Lightbulb className="h-4 w-4" />}
         />
 
@@ -248,89 +250,127 @@ export default function LivePage() {
         />
       </div>
 
-      {/* Radar Visualizer for Motion */}
+      {/* Radar Visualizer for Presence */}
       <RadarVisualizer
         motionDetected={reading.motionDetected}
         totalEventsToday={packetHistory.filter((p) => p.motionDetected).length}
       />
 
-      {/* Live Stream Packet Feed Table */}
+      {/* Interactive Live Presence & Ingestion Timeline Stream */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-3">
           <div>
-            <CardTitle>Live Telemetry Ingestion Stream</CardTitle>
+            <CardTitle>Live Presence & Telemetry Event Stream</CardTitle>
             <CardDescription>
-              Chronological log of real-time packets received from {selectedDeviceId}
+              Real-time chronological events and telemetry packets captured from {selectedDeviceId}
             </CardDescription>
           </div>
           <Badge variant="glow">
-            {packetCount} packets captured
+            {packetCount} packets synchronized
           </Badge>
         </CardHeader>
 
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[700px] text-left text-xs font-mono">
-              <thead className="border-b border-slate-200/80 bg-slate-50/50 uppercase text-[10px] text-slate-400 dark:border-white/5 dark:bg-slate-900/50">
-                <tr>
-                  <th className="py-3 px-4">Packet Time</th>
-                  <th className="py-3 px-4">Temperature</th>
-                  <th className="py-3 px-4">Humidity</th>
-                  <th className="py-3 px-4">Light (Raw)</th>
-                  <th className="py-3 px-4">Motion</th>
-                  <th className="py-3 px-4">Wi-Fi Signal</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-                {packetHistory.map((packet, index) => {
-                  const prev = packetHistory[index + 1];
-                  const tempDelta = prev
-                    ? packet.temperatureC - prev.temperatureC
-                    : 0;
+          <div className="space-y-3">
+            {packetHistory.map((packet, index) => {
+              const prev = packetHistory[index + 1];
+              const tempDelta = prev
+                ? packet.temperatureC - prev.temperatureC
+                : 0;
+              const isOccupiedPacket = packet.motionDetected;
+              const isLightOnPacket = packet.lightValue >= 1;
 
-                  return (
-                    <tr
-                      key={packet.id + index}
-                      className="hover:bg-slate-50/60 dark:hover:bg-white/5 transition-colors"
+              return (
+                <div
+                  key={packet.id + index}
+                  className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border p-4 transition-all ${
+                    index === 0
+                      ? "border-cyan-500/30 bg-cyan-500/5 shadow-xs dark:border-cyan-500/20 dark:bg-cyan-500/5"
+                      : "border-slate-200/70 bg-white/70 hover:bg-slate-50/80 dark:border-white/5 dark:bg-slate-900/60 dark:hover:bg-white/5"
+                  }`}
+                >
+                  {/* Left: Event Details */}
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
+                        isOccupiedPacket
+                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                          : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                      }`}
                     >
-                      <td className="py-3 px-4 text-slate-500 dark:text-slate-400">
+                      {isOccupiedPacket ? (
+                        <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-ping" />
+                      ) : (
+                        <span className="h-2 w-2 rounded-full bg-slate-400" />
+                      )}
+                    </div>
+
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold text-xs sm:text-sm text-slate-900 dark:text-white">
+                          {isOccupiedPacket
+                            ? "Someone entered / Movement detected in room"
+                            : isLightOnPacket
+                            ? "Room illuminated · Lights Active"
+                            : "Ambient monitoring · Space Vacant"}
+                        </p>
+                        {index === 0 && (
+                          <span className="rounded-md bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-bold text-cyan-600 dark:text-cyan-400 border border-cyan-500/20">
+                            Latest Ingestion
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                         {fullTimestamp(packet.timestamp)}
-                      </td>
-                      <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">
-                        <span className="flex items-center gap-1.5">
-                          {formatNumber(packet.temperatureC)} °C
-                          {tempDelta > 0.05 ? (
-                            <ArrowUp className="h-3 w-3 text-rose-500" />
-                          ) : tempDelta < -0.05 ? (
-                            <ArrowDown className="h-3 w-3 text-blue-500" />
-                          ) : null}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 font-bold text-cyan-600 dark:text-cyan-400">
-                        {formatNumber(packet.humidityPercent, 0)}%
-                      </td>
-                      <td className="py-3 px-4 font-bold text-amber-600 dark:text-amber-400">
-                        {formatNumber(packet.lightValue, 0)}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span
-                          className={`rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase ${
-                            packet.motionDetected
-                              ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
-                              : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
-                          }`}
-                        >
-                          {packet.motionDetected ? "Triggered" : "Clear"}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-slate-600 dark:text-slate-300">
-                        {packet.wifiRssi} dBm
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Right: Meaningful Telemetry Badges */}
+                  <div className="flex items-center gap-2 flex-wrap sm:justify-end">
+                    {/* Temperature Pill */}
+                    <div className="flex items-center gap-1 rounded-lg border border-blue-500/20 bg-blue-50/50 px-2.5 py-1 text-xs font-mono font-bold text-blue-600 dark:bg-blue-950/20 dark:text-blue-400">
+                      <Thermometer className="h-3 w-3" />
+                      <span>{formatNumber(packet.temperatureC)}°C</span>
+                      {tempDelta > 0.05 ? (
+                        <ArrowUp className="h-3 w-3 text-rose-500" />
+                      ) : tempDelta < -0.05 ? (
+                        <ArrowDown className="h-3 w-3 text-blue-500" />
+                      ) : null}
+                    </div>
+
+                    {/* Humidity Pill */}
+                    <div className="flex items-center gap-1 rounded-lg border border-cyan-500/20 bg-cyan-50/50 px-2.5 py-1 text-xs font-mono font-bold text-cyan-600 dark:bg-cyan-950/20 dark:text-cyan-400">
+                      <Droplets className="h-3 w-3" />
+                      <span>{formatNumber(packet.humidityPercent, 0)}%</span>
+                    </div>
+
+                    {/* Light State */}
+                    <div className="flex items-center gap-1 rounded-lg border border-amber-500/20 bg-amber-50/50 px-2.5 py-1 text-xs font-medium text-amber-700 dark:bg-amber-950/20 dark:text-amber-300">
+                      <Lightbulb className="h-3 w-3" />
+                      <span>{isLightOnPacket ? "Light ON" : "Dim"}</span>
+                    </div>
+
+                    {/* Presence State */}
+                    <div
+                      className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold ${
+                        isOccupiedPacket
+                          ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                          : "border border-slate-200 bg-slate-50 text-slate-500 dark:border-white/5 dark:bg-slate-800 dark:text-slate-400"
+                      }`}
+                    >
+                      <span>{isOccupiedPacket ? "Occupied" : "Vacant"}</span>
+                    </div>
+
+                    {/* WiFi Signal */}
+                    <div className="flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-mono text-slate-500 dark:border-white/5 dark:text-slate-400">
+                      <Wifi className="h-3 w-3 text-emerald-500" />
+                      <span>{packet.wifiRssi} dBm</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </CardContent>
       </Card>

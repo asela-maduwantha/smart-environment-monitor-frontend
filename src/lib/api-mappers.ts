@@ -34,7 +34,13 @@ type RawAlert = {
   resolvedAt?: string | null;
 };
 
-type RawChartReading = { timestamp: string; temperature: number; humidity: number; light: number };
+type RawChartReading = {
+  timestamp: string;
+  temperature: number;
+  humidity: number;
+  light: number;
+  isForecast?: boolean;
+};
 type RawAnalytics = {
   temperature: Analytics["temperature"];
   humidity: Analytics["humidity"];
@@ -84,7 +90,13 @@ export function mapAlert(alert: RawAlert): Alert {
 }
 
 export function mapChartReading(reading: RawChartReading): ChartReading {
-  return { timestamp: reading.timestamp, temperatureC: reading.temperature, humidityPercent: reading.humidity, lightValue: reading.light };
+  return {
+    timestamp: reading.timestamp,
+    temperatureC: reading.temperature,
+    humidityPercent: reading.humidity,
+    lightValue: reading.light,
+    isForecast: reading.isForecast ?? false,
+  };
 }
 
 export function mapAnalytics(raw: RawAnalytics, range: AnalyticsRange, readings: ChartReading[]): Analytics {
@@ -93,3 +105,4 @@ export function mapAnalytics(raw: RawAnalytics, range: AnalyticsRange, readings:
 
 export type { RawAlert, RawAnalytics, RawChartReading, RawDevice, RawReading };
 export type RawSettings = DeviceSettings & { id?: string; deviceId?: string; createdAt?: string; updatedAt?: string };
+
